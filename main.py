@@ -97,6 +97,15 @@ def upload_to_drive(images_url, gauth):
                 "name": filename,
                 "parents": [folder_id]
             }
+            
+            r = requests.get(
+                "https://www.googleapis.com/drive/v3/files?q=name='" + filename + "' and '" + folder_id + "' in parents",
+                headers={"Authorization": "Bearer " + access_token}
+            )
+            if r.json().get('files'):
+                print("file exists")
+                continue
+
             file = {
                 'data': ('metadata', json.dumps(metadata), 'application/json'),
                 'file': io.BytesIO(requests.get(url).content)

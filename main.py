@@ -9,6 +9,8 @@ import json
 import requests
 
 NEED_TO_SEARCH_PROVINSI = ['DKI JAKARTA', 'Luar Negeri']
+NEED_TO_SEARCH_KAB_FOR_JAKARTA = [
+    'KOTA ADM. JAKARTA PUSAT', 'KOTA ADM. JAKARTA SELATAN']
 
 
 def main():
@@ -23,6 +25,8 @@ def main():
         if provinsi in NEED_TO_SEARCH_PROVINSI:
             kabupaten_list, kab_names = get_names(
                 driver, provinsi_list, prov_names, provinsi, 4)
+            if provinsi == 'DKI JAKARTA':
+                kab_names = NEED_TO_SEARCH_KAB_FOR_JAKARTA
             for kabupaten in kab_names:
                 kecamatan_list, kec_names = get_names(
                     driver, kabupaten_list, kab_names, kabupaten, 5)
@@ -85,21 +89,23 @@ def download_images(images_url):
         except:
             print('error downloading image')
 
+
 def upload_to_drive(images_url, gauth):
     for image in images_url:
         try:
-            url = image.get_attribute("src") # Please set the URL of direct link of the image.
-            filename = url.split('/')[-1] # Please set the filename.
-            folder_id = '1jo-vt-7WyZkrvyxqIjVxzTQP5MD3GJZp' # Please set the folder ID of the shared Drive. When you want to create the file to the root folder of the shared Drive, please set the Drive ID here.
+            url = image.get_attribute("src")
+            filename = url.split('/')[-1]
+            folder_id = '1jo-vt-7WyZkrvyxqIjVxzTQP5MD3GJZp'
 
             access_token = gauth.attr['credentials'].access_token
             metadata = {
                 "name": filename,
                 "parents": [folder_id]
             }
-            
+
             r = requests.get(
-                "https://www.googleapis.com/drive/v3/files?q=name='" + filename + "' and '" + folder_id + "' in parents",
+                "https://www.googleapis.com/drive/v3/files?q=name='" +
+                filename + "' and '" + folder_id + "' in parents",
                 headers={"Authorization": "Bearer " + access_token}
             )
             if r.json().get('files'):
@@ -118,5 +124,6 @@ def upload_to_drive(images_url, gauth):
 
         except:
             print("error uploading image to drive")
+
 
 main()

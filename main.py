@@ -3,18 +3,24 @@ from urllib import request
 from urllib.parse import urljoin
 from selenium import webdriver
 from selenium.webdriver.common.by import By
+from pydrive.auth import GoogleAuth
+import io
+import json
+import requests
 
 NEED_TO_SEARCH_PROVINSI = ['DKI JAKARTA', 'Luar Negeri']
 
 
 def main():
+    gauth = GoogleAuth()
+    gauth.LocalWebserverAuth()
     driver = webdriver.Edge()
     url = 'https://pemilu2024.kpu.go.id/pilegdpr/hitung-suara'
     driver.get(url)
     provinsi_list = get_list(driver, 3)
     prov_names = [x.text for x in provinsi_list]
     for provinsi in prov_names:
-        if provinsi in NEED_TO_SEARCH_PROVINSI[0]:
+        if provinsi in NEED_TO_SEARCH_PROVINSI:
             kabupaten_list, kab_names = get_names(
                 driver, provinsi_list, prov_names, provinsi, 4)
             for kabupaten in kab_names:
@@ -28,11 +34,11 @@ def main():
                             driver, kelurahan_list, kel_names, kelurahan, 7)
                         for tps in tps_names:
                             tps_list[tps_names.index(tps)].click()
-                            sleep(10)
+                            sleep(6)
                             images = driver.find_elements(
                                 By.XPATH, '//img[@alt="Form C1 image"]')
                             if len(images) > 0:
-                                download_images(images)
+                                upload_to_drive(images, gauth)
                             # restore tps list
                             tps_list = get_list(driver, 7)
                         # restore kelurahan list
@@ -51,21 +57,23 @@ def get_dropdowns(driver):
 
 
 def get_list(driver, index):
+    sleep(1)
     dropdowns = get_dropdowns(driver)
     dropdown = dropdowns[index]
     dropdown.click()
     menu = dropdown.find_element(
         By.CSS_SELECTOR, 'ul.vs__dropdown-menu')
-    list = menu.find_elements(
+    lists = menu.find_elements(
         By.CSS_SELECTOR, 'li.vs__dropdown-option')
-    return list
+    return lists
 
 
 def get_names(driver, list, names, curr, index):
     list[names.index(curr)].click()
-    list = get_list(driver, index)
-    names = [x.text for x in list]
-    return list, names
+    lists = get_list(driver, index)
+    sleep(2)
+    names = [x.text for x in lists]
+    return lists, names
 
 
 def download_images(images_url):
@@ -77,5 +85,29 @@ def download_images(images_url):
         except:
             print('error downloading image')
 
+def upload_to_drive(images_url, gauth):
+    for image in images_url:
+        try:
+            url = image.get_attribute("src") # Please set the URL of direct link of the image.
+            filename = url.split('/')[-1] # Please set the filename.
+            folder_id = '1jo-vt-7WyZkrvyxqIjVxzTQP5MD3GJZp' # Please set the folder ID of the shared Drive. When you want to create the file to the root folder of the shared Drive, please set the Drive ID here.
+
+            access_token = gauth.attr['credentials'].access_token
+            metadata = {
+                "name": filename,
+                "parents": [folder_id]
+            }
+            file = {
+                'data': ('metadata', json.dumps(metadata), 'application/json'),
+                'file': io.BytesIO(requests.get(url).content)
+            }
+            r = requests.post(
+                "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&supportsAllDrives=true",
+                headers={"Authorization": "Bearer " + access_token},
+                files=file
+            )
+
+        except:
+            print("error uploading image to drive")
 
 main()

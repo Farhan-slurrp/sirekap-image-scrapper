@@ -25,9 +25,9 @@ def main():
         if provinsi in NEED_TO_SEARCH_PROVINSI:
             kabupaten_list, kab_names = get_names(
                 driver, provinsi_list, prov_names, provinsi, 4)
-            if provinsi == 'DKI JAKARTA':
-                kab_names = NEED_TO_SEARCH_KAB_FOR_JAKARTA
             for kabupaten in kab_names:
+                if provinsi == 'DKI JAKARTA' and kabupaten not in NEED_TO_SEARCH_KAB_FOR_JAKARTA:
+                    continue
                 kecamatan_list, kec_names = get_names(
                     driver, kabupaten_list, kab_names, kabupaten, 5)
                 for kecamatan in kec_names:
@@ -38,7 +38,7 @@ def main():
                             driver, kelurahan_list, kel_names, kelurahan, 7)
                         for tps in tps_names:
                             tps_list[tps_names.index(tps)].click()
-                            sleep(6)
+                            sleep(4)
                             images = driver.find_elements(
                                 By.XPATH, '//img[@alt="Form C1 image"]')
                             if len(images) > 0:
@@ -75,7 +75,7 @@ def get_list(driver, index):
 def get_names(driver, list, names, curr, index):
     list[names.index(curr)].click()
     lists = get_list(driver, index)
-    sleep(2)
+    sleep(1)
     names = [x.text for x in lists]
     return lists, names
 
@@ -121,6 +121,8 @@ def upload_to_drive(images_url, gauth):
                 headers={"Authorization": "Bearer " + access_token},
                 files=file
             )
+
+            print(r.status_code, r.text)
 
         except:
             print("error uploading image to drive")

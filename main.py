@@ -1,14 +1,16 @@
+import base64
 from time import sleep
 from urllib import request
-from urllib.parse import urljoin
 from selenium import webdriver
 from selenium.webdriver.common.by import By
+from selenium.webdriver.chrome.options import Options
 from pydrive.auth import GoogleAuth
+from PIL import Image, ImageDraw, ImageFont
 import io
 import json
 import requests
 
-NEED_TO_SEARCH_PROVINSI = ['DKI JAKARTA', 'Luar Negeri']
+NEED_TO_SEARCH_PROVINSI = ['DKI JAKARTA']
 NEED_TO_SEARCH_KAB_FOR_JAKARTA = [
     'KOTA ADM. JAKARTA PUSAT', 'KOTA ADM. JAKARTA SELATAN']
 
@@ -16,7 +18,10 @@ NEED_TO_SEARCH_KAB_FOR_JAKARTA = [
 def main():
     gauth = GoogleAuth()
     gauth.LocalWebserverAuth()
-    driver = webdriver.Edge()
+    options = Options()
+    options.add_argument('--headless')
+    options.add_argument('--start-maximized')
+    driver = webdriver.Chrome(options=options)
     url = 'https://pemilu2024.kpu.go.id/pilegdpr/hitung-suara'
     driver.get(url)
     provinsi_list = get_list(driver, 3)
@@ -37,12 +42,14 @@ def main():
                         tps_list, tps_names = get_names(
                             driver, kelurahan_list, kel_names, kelurahan, 7)
                         for tps in tps_names:
-                            tps_list[tps_names.index(tps)].click()
+                            driver.execute_script(
+                                "arguments[0].click();", tps_list[tps_names.index(tps)])
                             sleep(4)
                             images = driver.find_elements(
                                 By.XPATH, '//img[@alt="Form C1 image"]')
                             if len(images) > 0:
-                                upload_to_drive(images, gauth)
+                                filename = f"{provinsi} - {kabupaten} - {kecamatan} - {kelurahan} - {tps}.pdf"
+                                save_page_to_drive(filename, driver, gauth)
                             # restore tps list
                             tps_list = get_list(driver, 7)
                         # restore kelurahan list
@@ -110,7 +117,7 @@ def upload_to_drive(images_url, gauth):
             )
             if r.json().get('files'):
                 print("file exists")
-                continue
+                return
 
             file = {
                 'data': ('metadata', json.dumps(metadata), 'application/json'),
@@ -126,6 +133,50 @@ def upload_to_drive(images_url, gauth):
 
         except:
             print("error uploading image to drive")
+
+
+def save_page_to_drive(filename, driver, gauth):
+    try:
+        folder_id = '1_Qt_NmSndhkV7QtX0JHauGM21Kk9wTsT'
+
+        access_token = gauth.attr['credentials'].access_token
+        metadata = {
+            "name": filename,
+            "parents": [folder_id]
+        }
+
+        r = requests.get(
+            "https://www.googleapis.com/drive/v3/files?q=name='" +
+            filename + "' and '" + folder_id + "' in parents",
+            headers={"Authorization": "Bearer " + access_token}
+        )
+
+        if r.json().get('files'):
+            print("file exists")
+            return
+
+        driver.execute_script("window.print();")
+    
+        sleep(5)
+        
+        result = driver.execute_cdp_cmd('Page.printToPDF', {'landscape': False, 'displayHeaderFooter': False})
+        pdf_data = base64.b64decode(result['data'])
+
+        file = {
+            'data': ('metadata', json.dumps(metadata), 'application/json'),
+            'file': io.BytesIO(pdf_data)
+        }
+        r = requests.post(
+            "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&supportsAllDrives=true",
+            headers={"Authorization": "Bearer " + access_token},
+            files=file
+        )
+
+        print(r.status_code, r.text)
+
+    except Exception as e:
+        print(f"error uploading image to drive: {e}")
+
 
 
 main()

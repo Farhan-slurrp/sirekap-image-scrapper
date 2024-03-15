@@ -1,11 +1,11 @@
 import base64
+import os
 from time import sleep
 from urllib import request
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.options import Options
 from pydrive.auth import GoogleAuth
-from PIL import Image, ImageDraw, ImageFont
 import io
 import json
 import requests
@@ -17,6 +17,9 @@ NEED_TO_SEARCH_KAB_FOR_JAKARTA = [
 
 def main():
     gauth = GoogleAuth()
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    client_secrets_file = os.path.join(script_dir, 'client_secrets.json')
+    gauth.LoadClientConfigFile(client_secrets_file)
     gauth.LocalWebserverAuth()
     options = Options()
     options.add_argument('--headless')
@@ -44,7 +47,7 @@ def main():
                         for tps in tps_names:
                             driver.execute_script(
                                 "arguments[0].click();", tps_list[tps_names.index(tps)])
-                            sleep(4)
+                            sleep(7)
                             images = driver.find_elements(
                                 By.XPATH, '//img[@alt="Form C1 image"]')
                             if len(images) > 0:
@@ -80,7 +83,8 @@ def get_list(driver, index):
 
 
 def get_names(driver, list, names, curr, index):
-    list[names.index(curr)].click()
+    driver.execute_script(
+        "arguments[0].click();", list[names.index(curr)])
     lists = get_list(driver, index)
     sleep(1)
     names = [x.text for x in lists]

@@ -182,5 +182,5 @@ def save_page_to_drive(filename, driver, gauth):
         print(f"error uploading image to drive: {e}")
 
 
-
-main()
+if __name__ == '__main__':
+    main()

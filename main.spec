@@ -5,7 +5,7 @@ a = Analysis(
     ['main.py'],
     pathex=[],
     binaries=[],
-    datas=[('client_secrets.json', '.')],
+    datas=[('client_secrets.json', '.'), ('credentials.json', '.')],
     hiddenimports=['apiclient'],
     hookspath=[],
     hooksconfig={},

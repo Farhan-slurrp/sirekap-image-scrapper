@@ -19,8 +19,21 @@ def main():
     gauth = GoogleAuth()
     script_dir = os.path.dirname(os.path.abspath(__file__))
     client_secrets_file = os.path.join(script_dir, 'client_secrets.json')
+    client_creds_file = os.path.join(script_dir, 'credentials.json')
     gauth.LoadClientConfigFile(client_secrets_file)
-    gauth.LocalWebserverAuth()
+    gauth.LoadCredentialsFile(client_creds_file)
+    if gauth.credentials is None:
+        # Authenticate if they're not there
+        gauth.LocalWebserverAuth()
+    elif gauth.access_token_expired:
+        # Refresh them if expired
+        gauth.Refresh()
+    else:
+        # Initialize the saved creds
+        gauth.Authorize()
+
+    gauth.SaveCredentialsFile(client_creds_file)
+
     options = Options()
     options.add_argument('--headless')
     options.add_argument('--start-maximized')
@@ -143,6 +156,12 @@ def save_page_to_drive(filename, driver, gauth):
     try:
         folder_id = '1_Qt_NmSndhkV7QtX0JHauGM21Kk9wTsT'
 
+        # check if token is expired
+        if gauth.access_token_expired:
+            gauth.Refresh()
+        else:
+            gauth.Authorize()
+
         access_token = gauth.attr['credentials'].access_token
         metadata = {
             "name": filename,
@@ -160,10 +179,11 @@ def save_page_to_drive(filename, driver, gauth):
             return
 
         driver.execute_script("window.print();")
-    
+
         sleep(5)
-        
-        result = driver.execute_cdp_cmd('Page.printToPDF', {'landscape': False, 'displayHeaderFooter': False})
+
+        result = driver.execute_cdp_cmd(
+            'Page.printToPDF', {'landscape': False, 'displayHeaderFooter': False})
         pdf_data = base64.b64decode(result['data'])
 
         file = {

@@ -1,5 +1,6 @@
 # -*- mode: python ; coding: utf-8 -*-
-
+import sys
+sys.setrecursionlimit(5000)
 
 a = Analysis(
     ['main.py'],
